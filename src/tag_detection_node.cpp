@@ -697,7 +697,7 @@ int main(int argc, char** argv) {
 
             distance_btw_markers = Marker::Markerdistance(*m1,*m2);
             pixel_to_mm =  real_distance_btw_markers/distance_btw_markers;
-            pixel_to_mm_d = 2*8*l /(m1->d + m2->d);
+            pixel_to_mm_d = 2*8*l /(m1->d + m2->d); 
 
 
 
