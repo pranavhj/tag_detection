@@ -1,0 +1,8 @@
+prefix=/home/pranav/create_ws/src/tag_detection/cmake-build-debug/devel
+
+Name: tag_detection
+Description: Description of tag_detection
+Version: 0.0.0
+Cflags: -I/home/pranav/create_ws/src/tag_detection/include/tag_detection
+Libs: -L${prefix}/lib -ltag_detection
+Requires: geometry_msgs roscpp std_msgs cv_bridge image_transport sensor_msgs

@@ -1,0 +1,2 @@
+- setup-file:
+    local-name: /home/pranav/create_ws/src/tag_detection/cmake-build-debug/devel/setup.sh

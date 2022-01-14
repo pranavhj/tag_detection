@@ -1,0 +1,8 @@
+prefix=/usr/local
+
+Name: tag_detection
+Description: Description of tag_detection
+Version: 0.0.0
+Cflags: -I${prefix}/include
+Libs: -L${prefix}/lib -ltag_detection
+Requires: geometry_msgs roscpp std_msgs cv_bridge image_transport sensor_msgs
