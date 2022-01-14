@@ -163,11 +163,11 @@ struct Marker{
     geometry_msgs::Pose2D getCameraPose()  //returns values in px
     {
         geometry_msgs::Pose2D camera_pose_wrt_m1;
-        camera_pose_wrt_m1.theta = ConvertFromMinusPitoPi(-getAngle(first_point,second_point));
+        camera_pose_wrt_m1.theta = ConvertFromMinusPitoPi(getAngle(first_point,forth_point));
         auto dx1 = -(center.x-(image_size.width/2.0));               //minus sign bcs things moe in reverse in img
         auto dy1 =  -(center.y-(image_size.height/2.0));
-        camera_pose_wrt_m1.y =( (dx1*cos(camera_pose_wrt_m1.theta)) + (dy1* -sin(camera_pose_wrt_m1.theta)) );   // converting from camera pose to tracker pose
-        camera_pose_wrt_m1.x =( (dx1*sin(camera_pose_wrt_m1.theta)) + (dy1*cos(camera_pose_wrt_m1.theta))  );
+        camera_pose_wrt_m1.x =( (dx1*cos(camera_pose_wrt_m1.theta)) + (dy1* -sin(camera_pose_wrt_m1.theta)) );    // if does not work put minus sign on next line
+        camera_pose_wrt_m1.y =( (dx1*sin(camera_pose_wrt_m1.theta)) + (dy1*cos(camera_pose_wrt_m1.theta))  );   // converting from camera pose to tracker pose
         return camera_pose_wrt_m1;
     }
 
@@ -697,7 +697,7 @@ int main(int argc, char** argv) {
 
             distance_btw_markers = Marker::Markerdistance(*m1,*m2);
             pixel_to_mm =  real_distance_btw_markers/distance_btw_markers;
-            pixel_to_mm_d = 2*8*l /(m1->d + m2->d); 
+            pixel_to_mm_d = 2*8*l /(m1->d + m2->d);
 
 
 
