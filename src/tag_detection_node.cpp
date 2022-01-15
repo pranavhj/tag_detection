@@ -1,5 +1,6 @@
 
 #include <opencv2/calib3d.hpp>
+#include <unordered_map>
 #include"tag_detection.h"
 
 // TagDetection::~TagDetection(){
@@ -30,14 +31,19 @@ TF *TF_;
 
 
 
-void StartTF(tf::TransformListener &transformListener)
+void StartTF(tf::TransformListener &transformListener, unordered_map<int,std::pair<string,geometry_msgs::Pose>> idToFrameMap)
 {
     geometry_msgs::PoseStamped p;
     p.pose=TF::MakeGeometryMsgsPose(0,0,0,0,0,0,1);
     TF_->PublishStaticTransform("base","origin",p.pose);
 
-
-    geometry_msgs::Pose tracker1firstPointPoseWRTOrigin=TF::MakeGeometryMsgsPose(1.0,0.465+0.1,0,0,0,0,1);
+    for(auto itr = idToFrameMap.begin(); itr!=idToFrameMap.end();itr++)
+    {
+        std::cout<<"publishing static transform for frame "<<itr->second.first<<std::endl;
+        TF_->PublishStaticTransform(itr->second.first,"/origin",itr->second.second);
+        ros::spinOnce();
+    }
+    /*geometry_msgs::Pose tracker1firstPointPoseWRTOrigin=TF::MakeGeometryMsgsPose(1.0,0.465+0.1,0,0,0,0,1);
     TF_->PublishStaticTransform("/tracker1firstPointPoseWRTOrigin","/origin",tracker1firstPointPoseWRTOrigin);
     ros::spinOnce();
 //    ros::Duration(0.5).sleep();
@@ -51,7 +57,7 @@ void StartTF(tf::TransformListener &transformListener)
     TF_->PublishStaticTransform("/tracker2firstPointPoseWRTOrigin","/origin",tracker2firstPointPoseWRTOrigin);
     geometry_msgs::Pose tracker2PoseWRTOrigin = TF_->getInFrame(transformListener,TF::MakeGeometryMsgsPose(4*l*0.001,4*l*0.001,0,0,0,0,1),"/origin","/tracker2firstPointPoseWRTOrigin");
     TF_->PublishStaticTransform("/tracker2PoseWRTOrigin","/tracker2firstPointPoseWRTOrigin",TF::MakeGeometryMsgsPose(4.0*l*0.001,4.0*l*0.001,0,0,0,0,1));
-//    ros::Duration(0.5).sleep();
+//    ros::Duration(0.5).sleep();*/
 
 }
 
@@ -148,6 +154,7 @@ struct Marker{
         center.x = (first_point.x + third_point .x)/2.0;
         center.y = (first_point.y + third_point .y)/2.0;
         d= (distance(first_point,second_point)+ distance(third_point,forth_point))/2.0;
+        this->id = id;
 
     }
 
@@ -582,7 +589,15 @@ int main(int argc, char** argv) {
     image_transport::Subscriber image_sub_;
     TF_=new TF();
     tf::TransformListener transformListener;
-    StartTF(transformListener);
+
+    std::unordered_map<int,std::pair<string,geometry_msgs::Pose>> idToFrameMap; /// has name of frame and Pose of midpoint of marker wrt origin
+
+
+
+    idToFrameMap[25] = std::make_pair("tracker1Origin",TF::MakeGeometryMsgsPose(1.0 + (4.0*l*0.001),0.575 + (4*l*0.001),0,0,0,0,1));
+    idToFrameMap[33] = std::make_pair("tracker2Origin",TF::MakeGeometryMsgsPose(1.0 + (17.0*l*0.001),0.575 + (4*l*0.001),0,0,0,0,1));
+
+    StartTF(transformListener, idToFrameMap);
 
 
 
@@ -602,7 +617,8 @@ int main(int argc, char** argv) {
     image_sub_ = it_.subscribe("/camera/image_raw", 1,      &image_cb);
 
     cv::Ptr<cv::aruco::Dictionary> dictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_6X6_1000);
-    
+
+
 
 
     while(1)
@@ -639,7 +655,7 @@ int main(int argc, char** argv) {
     while (1) 
     {
 
-
+        int text_len =1;
         cv::Mat undistorted_image = cv_ptr->image.clone();
 
         //cv::undistort(cv_ptr->image, undistorted_image, calibration_matrix, distortion, new_camera_matrix );
@@ -664,8 +680,69 @@ int main(int argc, char** argv) {
         //cv::Ptr<cv::aruco::Dictionary> dictionary = cv::aruco::generateCustomDictionary(250, 6);
         cv::aruco::detectMarkers(imageCopy, dictionary, markerCorners, markerIds, parameters, rejectedCandidates);
 
+        std::vector<Marker*> markers;
 
-        //2 markers detected
+        double denominator=0;
+        for(int i=0;i<markerIds.size();i++)
+        {
+            Marker *m = new Marker(markerCorners[i],markerIds[i]);
+            markers.push_back(m);
+            denominator += m->getMarkerSizeinPixels();
+
+        }
+        if (denominator!=0)
+            pixel_to_mm_d =  (markerIds.size())*8*l /(denominator);
+
+
+
+        for(int i=0;i<markers.size();i++)
+        {
+            auto m = markers[i];
+            auto camera_pose_wrt_marker= m->getCameraPose();
+
+
+            camera_pose_wrt_marker.x *= (pixel_to_mm_d*0.001);    //and convert to m for rviz viz
+            camera_pose_wrt_marker.y *= (pixel_to_mm_d*0.001);
+            auto camera_quaternion=TF::EulerToQuaternion(0,0,camera_pose_wrt_marker.theta);
+
+            auto camera_pose_wrt_marker_3d=TF::MakeGeometryMsgsPose(camera_pose_wrt_marker.x,camera_pose_wrt_marker.y,0,camera_quaternion.x,camera_quaternion.y,camera_quaternion.z,camera_quaternion.w);
+
+            std::string pose_frame_id="/tracker1Origin",camera_id="/camera_wrt_";  // placeholders
+
+            pose_frame_id = idToFrameMap[m->id].first;
+            camera_id += idToFrameMap[m->id].first;
+
+            auto camera_pose = TF_->getInFrame(transformListener,camera_pose_wrt_marker_3d, pose_frame_id , "/origin");
+
+
+            TF_->publishFrame(camera_pose,camera_id,"/origin");
+
+
+
+
+            cv::arrowedLine(outputImage,m->first_point,m->forth_point, cvScalar(255,0,0),5);
+
+
+
+            cv::circle(outputImage,m->first_point,10,cvScalar(0,0,255),5);
+            cv::circle(outputImage,m->second_point,10,cvScalar(0,255,0),5);
+            cv::circle(outputImage,m->third_point,10,cvScalar(255,0,0),5);
+            cv::circle(outputImage,m->forth_point,10,cvScalar(254,255,255),5);
+
+
+            cv::circle(outputImage,m->center,10,cvScalar(255,0,0),5);
+
+            cv::putText(outputImage,std::to_string((m->center.x-(image_size.width/2.0))) + " " + std::to_string(m->center.y-(image_size.height/2.0)),cv::Point2f(55,text_len*55),cv::FONT_HERSHEY_DUPLEX,1.0,
+                        cvScalar(0,0,255));
+            text_len++;
+            cv::putText(outputImage, std::to_string(pixel_to_mm_d) + " " + std::to_string(pixel_to_mm)  + " id:" +  std::to_string (markerIds[i]) ,cv::Point2f(55,text_len*55),cv::FONT_HERSHEY_DUPLEX,1.0,
+                        cvScalar(0,0,255));
+            text_len++;
+
+
+
+        }
+        /*//2 markers detected
         if(markerCorners.size()==2)
         {
 
@@ -778,7 +855,7 @@ int main(int argc, char** argv) {
         {
 //            std::cout<<"No markers detected"<<std::endl;
         }
-
+*/
 
 
 
