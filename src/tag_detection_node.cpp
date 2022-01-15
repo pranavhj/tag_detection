@@ -680,13 +680,13 @@ int main(int argc, char** argv) {
         //cv::Ptr<cv::aruco::Dictionary> dictionary = cv::aruco::generateCustomDictionary(250, 6);
         cv::aruco::detectMarkers(imageCopy, dictionary, markerCorners, markerIds, parameters, rejectedCandidates);
 
-        std::vector<Marker*> markers;
+        std::unordered_map<int,Marker*> markers;
 
         double denominator=0;
         for(int i=0;i<markerIds.size();i++)
         {
             Marker *m = new Marker(markerCorners[i],markerIds[i]);
-            markers.push_back(m);
+            markers[m->id]=(m);
             denominator += m->getMarkerSizeinPixels();
 
         }
@@ -695,9 +695,9 @@ int main(int argc, char** argv) {
 
 
 
-        for(int i=0;i<markers.size();i++)
+        for(auto itr = markers.begin(); itr!=markers.end(); itr++)
         {
-            auto m = markers[i];
+            auto m = itr->second;
             auto camera_pose_wrt_marker= m->getCameraPose();
 
 
@@ -735,7 +735,7 @@ int main(int argc, char** argv) {
             cv::putText(outputImage,std::to_string((m->center.x-(image_size.width/2.0))) + " " + std::to_string(m->center.y-(image_size.height/2.0)),cv::Point2f(55,text_len*55),cv::FONT_HERSHEY_DUPLEX,1.0,
                         cvScalar(0,0,255));
             text_len++;
-            cv::putText(outputImage, std::to_string(pixel_to_mm_d) + " " + std::to_string(pixel_to_mm)  + " id:" +  std::to_string (markerIds[i]) ,cv::Point2f(55,text_len*55),cv::FONT_HERSHEY_DUPLEX,1.0,
+            cv::putText(outputImage, std::to_string(pixel_to_mm_d) + " " + std::to_string(pixel_to_mm)  + " id:" +  std::to_string (m->id) ,cv::Point2f(55,text_len*55),cv::FONT_HERSHEY_DUPLEX,1.0,
                         cvScalar(0,0,255));
             text_len++;
 
